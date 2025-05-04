@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "sort.h"
+#include "1_Sorting.h"
 
 //Linear Search
 int linearSearch(int arr[], int size, int target) {
