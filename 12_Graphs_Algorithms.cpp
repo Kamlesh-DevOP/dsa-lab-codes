@@ -1,248 +1,284 @@
-// Program for Graph ADT with Prim’s, Kruskal’s, and Dijkstra’s algorithms
+// C++ program to implement Prim’s algorithm, Kruskal’s algorithm, and Dijkstra’s algorithm
 #include <iostream>
 #include <vector>
 #include <algorithm>
-#include <climits>
+#include <queue>
+#include <limits>
+
 using namespace std;
 
-const int MAX_VERTICES = 100;
+const int INF = numeric_limits<int>::max();
 
-// Structure to represent an edge
-struct Edge {
-    int src, dest, weight;
-};
+class Graph
+{
+private:
+    int vertices;
+    vector<vector<pair<int, int>>> adjList;
 
-// Function prototypes
-void insertEdge(int adjMatrix[MAX_VERTICES][MAX_VERTICES], Edge edges[], int& edgeCount, int n, int src, int dest, int weight);
-void displayGraph(Edge edges[], int edgeCount);
-void primMST(int adjMatrix[MAX_VERTICES][MAX_VERTICES], int n);
-void kruskalMST(Edge edges[], int edgeCount, int n);
-void dijkstra(int adjMatrix[MAX_VERTICES][MAX_VERTICES], int n, int start);
-int find(int parent[], int i);
-void unionSets(int parent[], int rank[], int x, int y);
+    struct Edge
+    {
+        int u, v, weight;
+        bool operator<(const Edge &other) const
+        {
+            return weight < other.weight;
+        }
+    };
 
-int main() {
-    int n;
-    int adjMatrix[MAX_VERTICES][MAX_VERTICES] = {0};
-    Edge edges[MAX_VERTICES * MAX_VERTICES];
-    int edgeCount = 0;
-
-    cout << "Enter the number of vertices in the graph (max " << MAX_VERTICES << "): ";
-    cin >> n;
-
-    if (n <= 0 || n > MAX_VERTICES) {
-        cout << "Invalid number of vertices. Program exiting.\n";
-        return 0;
+    // Helper function for Prim's Algorithm
+    int minKey(vector<int> &key, vector<bool> &inMST)
+    {
+        int minVal = INF, minIndex = -1;
+        for (int v = 0; v < vertices; ++v)
+        {
+            if (!inMST[v] && key[v] < minVal)
+            {
+                minVal = key[v];
+                minIndex = v;
+            }
+        }
+        return minIndex;
     }
 
-    int choice, src, dest, weight, start;
-    do {
-        cout << "\nGraph Menu:\n";
-        cout << "1. Insert Edge\n";
-        cout << "2. Display Graph\n";
-        cout << "3. Prim's Algorithm (MST)\n";
-        cout << "4. Kruskal's Algorithm (MST)\n";
-        cout << "5. Dijkstra's Algorithm (SSSP)\n";
-        cout << "6. Exit\n";
+    vector<int> parent, rank;
+
+    void makeSet()
+    {
+        parent.resize(vertices);
+        rank.resize(vertices, 0);
+        for (int i = 0; i < vertices; i++)
+        {
+            parent[i] = i;
+        }
+    }
+
+    int findSet(int u)
+    {
+        if (u != parent[u])
+            parent[u] = findSet(parent[u]);
+        return parent[u];
+    }
+
+    void unionSets(int u, int v)
+    {
+        u = findSet(u);
+        v = findSet(v);
+        if (u != v)
+        {
+            if (rank[u] < rank[v])
+                parent[u] = v;
+            else if (rank[u] > rank[v])
+                parent[v] = u;
+            else
+            {
+                parent[v] = u;
+                rank[u]++;
+            }
+        }
+    }
+
+public:
+    Graph(int ver)
+    {
+        vertices = ver;
+        adjList.resize(vertices);
+    }
+    void addEdge(int, int, int);
+    void display();
+    void primMST();
+    void kruskalMST();
+    void dijkstra(int);
+};
+
+int main()
+{
+    int vertices;
+    cout << "Enter the number of vertices: ";
+    cin >> vertices;
+    Graph g(vertices);
+    int choice;
+    do
+    {
+        cout << "\n\nMENU :" << endl;
+        cout << "1. Insert\n 2. Display\n 3. Prim's MST\n 4. Kruskal's MST\n 5. Dijkstra's Shortest Paths\n 6. Exit" << endl;
         cout << "Enter your choice: ";
         cin >> choice;
-
-        switch (choice) {
-            case 1:
-                cout << "Enter source, destination and weight (0 to " << n - 1 << "): ";
-                cin >> src >> dest >> weight;
-                insertEdge(adjMatrix, edges, edgeCount, n, src, dest, weight);
-                break;
-            case 2:
-                displayGraph(edges, edgeCount);
-                break;
-            case 3:
-                primMST(adjMatrix, n);
-                break;
-            case 4:
-                kruskalMST(edges, edgeCount, n);
-                break;
-            case 5:
-                cout << "Enter starting vertex (0 to " << n - 1 << "): ";
-                cin >> start;
-                if (start >= 0 && start < n) {
-                    dijkstra(adjMatrix, n, start);
-                } else {
-                    cout << "Invalid starting vertex.\n";
-                }
-                break;
-            case 6:
-                cout << "Exiting program.\n";
-                break;
-            default:
-                cout << "Invalid choice. Please try again.\n";
+        switch (choice)
+        {
+        case 1:
+        {
+            int u, v, w;
+            cout << "Enter vertices : ";
+            cin >> u >> v;
+            cout << "Enter weight : ";
+            cin >> w;
+            g.addEdge(u, v, w);
+            break;
         }
-
+        case 2:
+            g.display();
+            break;
+        case 3:
+            g.primMST();
+            break;
+        case 4:
+            g.kruskalMST();
+            break;
+        case 5:
+        {
+            int src;
+            cout << "Enter source vertex: ";
+            cin >> src;
+            g.dijkstra(src);
+            break;
+        }
+        case 6:
+            cout << "Exiting program.\n";
+            break;
+        default:
+            cout << "Invalid choice. Enter again.\n";
+        }
     } while (choice != 6);
-
-    return 0;
 }
 
 // Function to insert an edge
-void insertEdge(int adjMatrix[MAX_VERTICES][MAX_VERTICES], Edge edges[], int& edgeCount, int n, int src, int dest, int weight) {
-    if (src >= 0 && src < n && dest >= 0 && dest < n && weight > 0) {
-        adjMatrix[src][dest] = weight;
-        adjMatrix[dest][src] = weight; // Assuming undirected graph
-        edges[edgeCount].src = src;
-        edges[edgeCount].dest = dest;
-        edges[edgeCount].weight = weight;
-        edgeCount++;
-        cout << "Edge inserted.\n";
-    } else {
-        cout << "Invalid input.\n";
+void Graph::addEdge(int u, int v, int w)
+{
+    if (u >= vertices || v >= vertices || u < 0 || v < 0)
+    {
+        cout << "Invalid vertices for edge!\n";
+        return;
     }
+    adjList[u].push_back({v, w});
+    adjList[v].push_back({u, w});
 }
 
 // Function to display the graph
-void displayGraph(Edge edges[], int edgeCount) {
-    cout << "Edges in the graph:\n";
-    for (int i = 0; i < edgeCount; i++) {
-        cout << edges[i].src << " -- " << edges[i].dest << " == " << edges[i].weight << endl;
+void Graph::display()
+{
+    cout << "\nGraph :" << endl;
+    for (int i = 0; i < vertices; i++)
+    {
+        cout << i << " -> ";
+        for (auto &neighbor : adjList[i])
+        {
+            cout << "(" << neighbor.first << ", weight = " << neighbor.second << ") ";
+        }
+        cout << endl;
     }
 }
 
-// Function to find MST using Prim's Algorithm
-void primMST(int adjMatrix[MAX_VERTICES][MAX_VERTICES], int n) {
-    int key[MAX_VERTICES];
-    bool mstSet[MAX_VERTICES];
-    int parent[MAX_VERTICES];
+// Function to implement Prim's algorithm
+void Graph::primMST()
+{
+    vector<int> key(vertices, INF);
+    vector<bool> inMST(vertices, false);
+    vector<int> parent(vertices, -1);
 
-    for (int i = 0; i < n; i++) {
-        key[i] = INT_MAX;
-        mstSet[i] = false;
-        parent[i] = -1;
-    }
+    for (int start = 0; start < vertices; ++start)
+    {
+        if (inMST[start])
+            continue; // already included in MST
 
-    key[0] = 0;
-    parent[0] = -1;
+        key[start] = 0;
 
-    for (int count = 0; count < n - 1; count++) {
-        int min = INT_MAX, u = -1;
-        for (int v = 0; v < n; v++) {
-            if (!mstSet[v] && key[v] < min) {
-                min = key[v];
-                u = v;
+        for (int count = 0; count < vertices; ++count)
+        {
+            int u = minKey(key, inMST);
+            if (u == -1)
+                break; // no available vertex
+
+            inMST[u] = true;
+
+            for (auto &neighbor : adjList[u])
+            {
+                int v = neighbor.first;
+                int weight = neighbor.second;
+                if (!inMST[v] && weight < key[v])
+                {
+                    key[v] = weight;
+                    parent[v] = u;
+                }
             }
         }
-
-        if (u == -1) return; // No more reachable vertices
-
-        mstSet[u] = true;
-
-        for (int v = 0; v < n; v++) {
-            if (adjMatrix[u][v] && !mstSet[v] && adjMatrix[u][v] < key[v]) {
-                parent[v] = u;
-                key[v] = adjMatrix[u][v];
-            }
-        }
     }
-
-    cout << "Prim's MST edges:\n";
-    for (int i = 1; i < n; i++) {
-        cout << parent[i] << " -- " << i << " == " << adjMatrix[i][parent[i]] << endl;
+    cout << "\nPrim's MST (or Forest if disconnected):\n";
+    for (int i = 0; i < vertices; i++)
+    {
+        if (parent[i] != -1)
+            cout << parent[i] << " - " << i << " (Weight: " << key[i] << ")\n";
     }
 }
 
-// Function to find MST using Kruskal's Algorithm
-void kruskalMST(Edge edges[], int edgeCount, int n) {
-    Edge result[MAX_VERTICES];
-    int e = 0;
-    int parent[MAX_VERTICES];
-    int rank[MAX_VERTICES] = {0};
-
-    for (int i = 0; i < n; i++)
-        parent[i] = i;
-
-    // Sort edges using bubble sort
-    for (int i = 0; i < edgeCount - 1; i++) {
-        for (int j = 0; j < edgeCount - i - 1; j++) {
-            if (edges[j].weight > edges[j + 1].weight) {
-                Edge temp = edges[j];
-                edges[j] = edges[j + 1];
-                edges[j + 1] = temp;
-            }
-        }
-    }
-
-    cout << "Kruskal's MST edges:\n";
-    for (int i = 0; i < edgeCount && e < n - 1; i++) {
-        int x = find(parent, edges[i].src);
-        int y = find(parent, edges[i].dest);
-
-        if (x != y) {
-            result[e++] = edges[i];
-            unionSets(parent, rank, x, y);
-        }
-    }
-
-    for (int i = 0; i < e; i++) {
-        cout << result[i].src << " -- " << result[i].dest << " == " << result[i].weight << endl;
-    }
-}
-
-// Function to perform Dijkstra's Algorithm
-void dijkstra(int adjMatrix[MAX_VERTICES][MAX_VERTICES], int n, int start) {
-    int dist[MAX_VERTICES];
-    bool sptSet[MAX_VERTICES];
-
-    for (int i = 0; i < n; i++) {
-        dist[i] = INT_MAX;
-        sptSet[i] = false;
-    }
-
-    dist[start] = 0;
-
-    for (int count = 0; count < n - 1; count++) {
-        int min = INT_MAX, u = -1;
-
-        for (int v = 0; v < n; v++) {
-            if (!sptSet[v] && dist[v] < min) {
-                min = dist[v];
-                u = v;
-            }
-        }
-
-        if (u == -1) return; // No more reachable vertices
-
-        sptSet[u] = true;
-
-        for (int v = 0; v < n; v++) {
-            if (!sptSet[v] && adjMatrix[u][v] && dist[u] != INT_MAX &&
-                dist[u] + adjMatrix[u][v] < dist[v]) {
-                dist[v] = dist[u] + adjMatrix[u][v];
+// Function to implement Krushkal's algorithm
+void Graph::kruskalMST()
+{
+    vector<Edge> edges;
+    for (int u = 0; u < vertices; u++)
+    {
+        for (auto &neighbor : adjList[u])
+        {
+            int v = neighbor.first;
+            int w = neighbor.second;
+            if (u < v)
+            {
+                edges.push_back({u, v, w});
             }
         }
     }
 
-    cout << "Shortest distances from vertex " << start << ":\n";
-    for (int i = 0; i < n; i++) {
-        cout << "To vertex " << i << " = " << dist[i] << endl;
+    sort(edges.begin(), edges.end());
+    makeSet();
+
+    cout << "\nKruskal's MST:\n";
+    for (auto &e : edges)
+    {
+        if (findSet(e.u) != findSet(e.v))
+        {
+            cout << e.u << " - " << e.v << " (Weight: " << e.weight << ")\n";
+            unionSets(e.u, e.v);
+        }
     }
 }
 
-// Helper function to find parent in DSU
-int find(int parent[], int i) {
-    if (parent[i] != i)
-        parent[i] = find(parent, parent[i]);
-    return parent[i];
-}
+// Function to implement Dijkstra's algorithm
+void Graph::dijkstra(int src)
+{
+    if (src < 0 || src >= vertices)
+    {
+        cout << "Invalid source vertex!\n";
+        return;
+    }
 
-// Helper function to union two sets in DSU
-void unionSets(int parent[], int rank[], int x, int y) {
-    int xroot = find(parent, x);
-    int yroot = find(parent, y);
+    vector<int> dist(vertices, INF);
+    dist[src] = 0;
 
-    if (rank[xroot] < rank[yroot])
-        parent[xroot] = yroot;
-    else if (rank[xroot] > rank[yroot])
-        parent[yroot] = xroot;
-    else {
-        parent[yroot] = xroot;
-        rank[xroot]++;
+    priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> pq;
+    pq.push({0, src});
+
+    while (!pq.empty())
+    {
+        int u = pq.top().second;
+        pq.pop();
+
+        for (auto &neighbor : adjList[u])
+        {
+            int v = neighbor.first;
+            int weight = neighbor.second;
+            if (dist[u] + weight < dist[v])
+            {
+                dist[v] = dist[u] + weight;
+                pq.push({dist[v], v});
+            }
+        }
+    }
+
+    cout << "\nShortest distances from source " << src << ":\n";
+    for (int i = 0; i < vertices; i++)
+    {
+        cout << "Vertex " << i << " -> ";
+        if (dist[i] == INF)
+            cout << "INF\n";
+        else
+            cout << dist[i] << endl;
     }
 }
